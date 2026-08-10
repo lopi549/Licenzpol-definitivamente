@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import {
   Briefcase, ShieldCheck, Palette, Sparkles, Building2, RefreshCw,
   ArrowRight, ArrowUpRight, Zap, Mail, FileText, KeyRound, Rocket,
-  Lock, Circle, ChevronRight
+  Lock, Circle, ChevronRight, Layers
 } from "lucide-react";
 
 const needIcon = { briefcase: Briefcase, "shield-check": ShieldCheck, palette: Palette, sparkles: Sparkles, "building-2": Building2, "refresh-cw": RefreshCw };
@@ -16,11 +16,12 @@ export default function Home() {
   const { lang, t } = useLang();
   const [needs, setNeeds] = useState([]);
   const [cats, setCats] = useState([]);
+  const [families, setFamilies] = useState([]);
   const [curated, setCurated] = useState([]);
 
   useEffect(() => {
-    Promise.all([api.needs(), api.categories(), api.products({ limit: 8 })])
-      .then(([n, c, p]) => { setNeeds(n); setCats(c); setCurated(p.items); });
+    Promise.all([api.needs(), api.categories(), api.families(), api.products({ limit: 8 })])
+      .then(([n, c, f, p]) => { setNeeds(n); setCats(c); setFamilies(f); setCurated(p.items); });
   }, []);
 
   return (
@@ -108,6 +109,44 @@ export default function Home() {
                   <p className="font-heading text-white text-lg">{lang === "it" ? c.name_it : c.name_en}</p>
                 </div>
                 <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-colors" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAMILIES */}
+      <section className="border-b border-white/10">
+        <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-20">
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
+            <div>
+              <p className="label-eyebrow mb-3">02b / Families</p>
+              <h2 className="font-display text-4xl md:text-5xl tracking-tight">
+                {lang === "it" ? "Le famiglie principali" : "Signature families"}
+              </h2>
+              <p className="text-zinc-500 mt-3 max-w-xl text-sm">
+                {lang === "it"
+                  ? "Da Windows a Adobe, ogni grande brand ha la sua pagina dedicata."
+                  : "From Windows to Adobe, every major brand has a dedicated page."}
+              </p>
+            </div>
+            <Link to="/families" data-testid="home-families-all" className="pill-btn border border-white/20 text-white hover:bg-white/5">
+              {lang === "it" ? "Tutte le famiglie" : "All families"} <ArrowUpRight size={14} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {families.map(f => (
+              <Link key={f.slug} data-testid={`home-family-${f.slug}`} to={`/family/${f.slug}`}
+                className={`card-hover relative overflow-hidden rounded-xl border border-white/10 mesh-${f.colorKey} p-6 min-h-[180px] flex flex-col justify-between`}>
+                <div className="absolute inset-0 grain" />
+                <div className="relative flex items-center justify-between">
+                  <Layers size={18} className="text-white/80" />
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-white/60">{f.product_count}</span>
+                </div>
+                <div className="relative">
+                  <h3 className="font-display text-white text-xl md:text-2xl tracking-tight">{lang === "it" ? f.name_it : f.name_en}</h3>
+                  <p className="text-xs text-white/70 mt-1 line-clamp-2">{lang === "it" ? f.tagline_it : f.tagline_en}</p>
+                </div>
               </Link>
             ))}
           </div>

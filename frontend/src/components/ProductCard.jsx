@@ -23,11 +23,21 @@ export default function ProductCard({ product, testid }) {
     >
       <div className={`relative aspect-[4/3] overflow-hidden mesh-${product.colorKey}`}>
         <div className="absolute inset-0 grain" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-display font-bold text-white/95 tracking-tight" style={{ fontSize: 'clamp(50px, 7vw, 120px)', lineHeight: 1 }}>
-            {product.mark}
-          </span>
-        </div>
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-contain p-6"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="font-display font-bold text-white/95 tracking-tight" style={{ fontSize: 'clamp(50px, 7vw, 120px)', lineHeight: 1 }}>
+              {product.mark}
+            </span>
+          </div>
+        )}
         <div className="absolute top-3 left-3 flex gap-1.5">
           {product.platforms.slice(0, 3).map(p => (
             <span key={p} className="chip !py-1 !px-2 !text-[10px] bg-black/40 backdrop-blur-sm">{platformIcon(p)}{p}</span>

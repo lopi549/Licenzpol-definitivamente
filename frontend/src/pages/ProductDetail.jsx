@@ -68,7 +68,16 @@ export default function ProductDetail() {
         <div className="lg:sticky lg:top-24 self-start">
           <div className={`relative rounded-2xl border border-white/10 overflow-hidden aspect-square mesh-${product.colorKey} flex items-center justify-center`}>
             <div className="absolute inset-0 grain" />
-            <span className="font-display font-bold text-white/95 tracking-tighter" style={{ fontSize: 'clamp(140px, 22vw, 340px)', lineHeight: 1 }}>{product.mark}</span>
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="absolute inset-0 w-full h-full object-contain p-10"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <span className="font-display font-bold text-white/95 tracking-tighter" style={{ fontSize: 'clamp(140px, 22vw, 340px)', lineHeight: 1 }}>{product.mark}</span>
+            )}
             <div className="absolute top-4 left-4 flex gap-2">
               {product.platforms.map(p => <span key={p} className="chip bg-black/40 backdrop-blur-sm">{p}</span>)}
             </div>

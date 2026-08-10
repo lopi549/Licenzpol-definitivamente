@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 
 from catalog import PRODUCTS, CATEGORIES, NEEDS, get_product_by_slug
+from families import FAMILIES, get_family
 
 
 BUNDLE_TIERS = [
@@ -186,6 +187,127 @@ async def related_products(slug: str, limit: int = 4):
     same_cat = [x for x in PRODUCTS if x["category"] == p["category"] and x["slug"] != slug]
     same_cat.sort(key=lambda x: min(v["price_eur"] for v in x["variants"]))
     return same_cat[:limit]
+
+
+def _match_family_products(family):
+    m = family.get("match", {})
+    items = list(PRODUCTS)
+    if family.get("brand"):
+        items = [p for p in items if p["brand"].lower() == family["brand"].lower()]
+    if m.get("category"):
+        items = [p for p in items if p["category"] == m["category"]]
+    return items
+
+
+def _group_products(products, group_by: str):
+    """Return an ordered list of {key, label_it, label_en, items[]}."""
+    import re as _re
+    buckets = {}
+    order = []
+
+    def bucket(key, label_it, label_en):
+        if key not in buckets:
+            buckets[key] = {"key": key, "label_it": label_it, "label_en": label_en, "items": []}
+            order.append(key)
+        return buckets[key]
+
+    for p in products:
+        n = p["name"].upper()
+        if group_by == "windows_version":
+            m = _re.search(r"WINDOWS\s+(SERVER\s+\d{4}|\d+)", n)
+            if m:
+                v = m.group(1).replace("  ", " ").strip()
+                key = f"windows-{v.lower().replace(' ', '-')}"
+                label = f"Windows {v.title()}" if not v.startswith("SERVER") else f"Windows {v.title()}"
+                bucket(key, label, label)["items"].append(p)
+            else:
+                bucket("other", "Altri", "Others")["items"].append(p)
+        elif group_by == "office_year":
+            if "365" in n:
+                bucket("m365", "Microsoft 365", "Microsoft 365")["items"].append(p)
+                continue
+            m = _re.search(r"OFFICE\s+(20\d{2})", n)
+            if m:
+                y = m.group(1)
+                bucket(f"office-{y}", f"Office {y}", f"Office {y}")["items"].append(p)
+                continue
+            # Individual apps
+            for app in ["VISIO", "PROJECT", "ACCESS", "WORD", "EXCEL", "POWERPOINT", "OUTLOOK", "ONENOTE", "PUBLISHER"]:
+                if app in n:
+                    lbl = app.title()
+                    bucket(f"app-{app.lower()}", lbl, lbl)["items"].append(p)
+                    break
+            else:
+                bucket("other", "Altri", "Others")["items"].append(p)
+        elif group_by == "adobe_app":
+            for app, lbl in [
+                ("CREATIVE CLOUD", "Creative Cloud"), ("PHOTOSHOP", "Photoshop"),
+                ("ILLUSTRATOR", "Illustrator"), ("INDESIGN", "InDesign"),
+                ("PREMIERE", "Premiere Pro"), ("AFTER EFFECTS", "After Effects"),
+                ("LIGHTROOM", "Lightroom"), ("ACROBAT", "Acrobat"),
+                ("AUDITION", "Audition"), ("ANIMATE", "Animate"),
+                ("DREAMWEAVER", "Dreamweaver"), ("XD", "Adobe XD"),
+                ("BRIDGE", "Bridge"),
+            ]:
+                if app in n:
+                    bucket(f"adobe-{lbl.lower().replace(' ', '-')}", lbl, lbl)["items"].append(p)
+                    break
+            else:
+                bucket("other", "Altri strumenti", "Other tools")["items"].append(p)
+        elif group_by == "autodesk_product":
+            for app, lbl in [
+                ("AUTOCAD LT", "AutoCAD LT"), ("AUTOCAD", "AutoCAD"),
+                ("REVIT", "Revit"), ("3DS MAX", "3ds Max"), ("MAYA", "Maya"),
+                ("INVENTOR", "Inventor"), ("FUSION", "Fusion"),
+                ("NAVISWORKS", "Navisworks"), ("CIVIL 3D", "Civil 3D"),
+                ("ARCHITECTURE", "Architecture"),
+            ]:
+                if app in n:
+                    bucket(f"autodesk-{lbl.lower().replace(' ', '-')}", lbl, lbl)["items"].append(p)
+                    break
+            else:
+                bucket("other", "Altri strumenti", "Other tools")["items"].append(p)
+        else:
+            bucket("all", "Tutti", "All")["items"].append(p)
+
+    # Sort groups: newest / most recognisable first — use natural sort
+    def sort_key(k):
+        m = _re.search(r"(\d+)", k)
+        return -int(m.group(1)) if m else 0
+
+    order.sort(key=sort_key)
+    # Sort items inside each group by price ascending
+    result = []
+    for k in order:
+        b = buckets[k]
+        b["items"].sort(key=lambda p: p["variants"][0]["price_eur"])
+        result.append(b)
+    return result
+
+
+@api_router.get("/families")
+async def list_families():
+    out = []
+    for f in FAMILIES:
+        items = _match_family_products(f)
+        out.append({**{k: v for k, v in f.items() if k != "match"}, "product_count": len(items)})
+    return out
+
+
+@api_router.get("/families/{slug}")
+async def get_family_detail(slug: str):
+    f = get_family(slug)
+    if not f:
+        raise HTTPException(status_code=404, detail="Family not found")
+    items = _match_family_products(f)
+    groups = _group_products(items, f.get("group_by", "all"))
+    featured = sorted(items, key=lambda p: p["variants"][0]["price_eur"])[:4]
+    return {
+        **{k: v for k, v in f.items() if k != "match"},
+        "product_count": len(items),
+        "featured": featured,
+        "groups": groups,
+    }
 
 
 @api_router.post("/orders", response_model=OrderResponse)

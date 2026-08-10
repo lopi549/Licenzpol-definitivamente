@@ -13,6 +13,7 @@ import Compare from "@/pages/Compare";
 import Checkout from "@/pages/Checkout";
 import Support from "@/pages/Support";
 import BundleBuilder from "@/pages/BundleBuilder";
+import Family, { FamiliesIndex } from "@/pages/Family";
 import { Transparency, Legal, Needs } from "@/pages/StaticPages";
 
 function App() {
@@ -28,6 +29,8 @@ function App() {
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/needs" element={<Needs />} />
                 <Route path="/bundle" element={<BundleBuilder />} />
+                <Route path="/families" element={<FamiliesIndex />} />
+                <Route path="/family/:slug" element={<Family />} />
                 <Route path="/product/:slug" element={<ProductDetail />} />
                 <Route path="/compare" element={<Compare />} />
                 <Route path="/checkout" element={<Checkout />} />

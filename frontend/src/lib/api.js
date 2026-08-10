@@ -8,6 +8,8 @@ export const http = axios.create({ baseURL: API });
 export const api = {
   categories: () => http.get("/categories").then(r => r.data),
   needs: () => http.get("/needs").then(r => r.data),
+  families: () => http.get("/families").then(r => r.data),
+  family: (slug) => http.get(`/families/${slug}`).then(r => r.data),
   products: (params) => http.get("/products", { params }).then(r => r.data),
   product: (slug) => http.get(`/products/${slug}`).then(r => r.data),
   related: (slug) => http.get(`/related/${slug}`).then(r => r.data),

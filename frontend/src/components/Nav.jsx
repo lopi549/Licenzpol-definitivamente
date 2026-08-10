@@ -45,6 +45,7 @@ export default function Nav() {
 
         <nav className="hidden md:flex items-center gap-6 ml-4">
           {link("/catalog", t.nav.catalog, "catalog")}
+          {link("/families", t.nav.families, "families")}
           {link("/needs", t.nav.needs, "needs")}
           {link("/bundle", t.nav.bundle, "bundle")}
           {link("/compare", `${t.nav.compare}${compare.length ? ` · ${compare.length}` : ""}`, "compare")}
@@ -86,6 +87,7 @@ export default function Nav() {
                 className="bg-transparent w-full text-sm text-white placeholder:text-zinc-500 focus:outline-none" />
             </form>
             {link("/catalog", t.nav.catalog, "catalog-m")}
+            {link("/families", t.nav.families, "families-m")}
             {link("/needs", t.nav.needs, "needs-m")}
             {link("/bundle", t.nav.bundle, "bundle-m")}
             {link("/compare", `${t.nav.compare} (${compare.length})`, "compare-m")}

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export const dict = {
   it: {
-    nav: { catalog: "Catalogo", needs: "Per esigenza", bundle: "Nuovo PC", compare: "Confronta", support: "Supporto", search: "Cerca software, versione, brand..." },
+    nav: { catalog: "Catalogo", families: "Famiglie", needs: "Per esigenza", bundle: "Nuovo PC", compare: "Confronta", support: "Supporto", search: "Cerca software, versione, brand..." },
     hero: {
       eyebrow: "Software, senza complicazioni",
       title1: "Il software giusto,",

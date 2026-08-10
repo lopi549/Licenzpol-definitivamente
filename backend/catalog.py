@@ -7,10 +7,12 @@ programmatically based on the product family, to keep the catalog rich.
 
 import csv
 import html
+import json
 import re
 from pathlib import Path
 
 CSV_PATH = Path(__file__).parent / "data" / "catalog.csv"
+IMAGES_OVERLAY_PATH = Path(__file__).parent / "data" / "product_images.json"
 
 CATEGORIES = [
     {"key": "os",       "color": "work",    "name_it": "Sistemi Operativi",       "name_en": "Operating Systems"},
@@ -406,9 +408,20 @@ def _copy(brand: str, name: str, category: str, edition: str, devices: int, lice
     return tag_it, tag_en, desc_it, desc_en, features_it, features_en, compat_it, compat_en, what_it, what_en, act_it, act_en, faq
 
 
+def _load_image_overlay():
+    """Load slug -> image_url overrides. Silent-fail on any error."""
+    try:
+        with open(IMAGES_OVERLAY_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def _load_csv():
     products = []
     seen_slugs = set()
+    overlay = _load_image_overlay()
     with open(CSV_PATH, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             slug = (row.get("product_slug") or "").strip()
@@ -432,6 +445,7 @@ def _load_csv():
             license_type = _detect_license_type(raw_name, brand)
             mark = _mark(brand, raw_name)
             color_key = CATEGORY_COLOR.get(category, "work")
+            image_url = (overlay.get(slug) or (row.get("image_url") or "").strip()) or None
             (tag_it, tag_en, desc_it, desc_en, features_it, features_en,
              compat_it, compat_en, what_it, what_en, act_it, act_en, faq) = _copy(
                 brand, name, category, edition, devices, license_type
@@ -442,6 +456,7 @@ def _load_csv():
             products.append({
                 "id": slug, "slug": slug, "name": name, "category": category,
                 "brand": brand, "mark": mark, "colorKey": color_key,
+                "image_url": image_url,
                 "platforms": platforms, "licenseType": license_type,
                 "tagline_it": tag_it, "tagline_en": tag_en,
                 "description_it": desc_it, "description_en": desc_en,
