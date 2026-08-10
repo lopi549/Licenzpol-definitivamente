@@ -1,17 +1,25 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
 import logging
-from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
-from catalog import PRODUCTS, CATEGORIES, NEEDS, get_product_by_slug
+from catalog import PRODUCTS as _CSV_PRODUCTS, CATEGORIES, NEEDS
 from families import FAMILIES, get_family
+from auth import seed_admin, ensure_indexes
+from db_migration import migrate_products_if_empty, load_products_from_db, ensure_default_pages, ensure_default_settings
+from admin_routes import admin_router
 
 
 BUNDLE_TIERS = [
@@ -56,15 +64,47 @@ class BundlePreviewRequest(BaseModel):
     selections: List[BundleSelection]
 
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+ROOT_DIR = Path(__file__).parent  # already imported
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI(title="LicenzPol API")
+app.state.db = db
 api_router = APIRouter(prefix="/api")
+
+# In-memory mirror of MongoDB products for fast filtering.
+PRODUCTS: List[dict] = list(_CSV_PRODUCTS)
+
+
+def get_product_by_slug(slug: str):
+    for p in PRODUCTS:
+        if p["slug"] == slug:
+            return p
+    return None
+
+
+async def _reload_products():
+    """Refresh the in-memory PRODUCTS list from MongoDB."""
+    global PRODUCTS
+    PRODUCTS = await load_products_from_db(db)
+
+
+app.state.reload_products = _reload_products
+
+
+@app.on_event("startup")
+async def _startup():
+    await ensure_indexes(db)
+    await seed_admin(db)
+    inserted = await migrate_products_if_empty(db, _CSV_PRODUCTS)
+    if inserted:
+        logging.info(f"[startup] migrated {inserted} products from CSV into MongoDB")
+    await ensure_default_pages(db)
+    await ensure_default_settings(db)
+    await _reload_products()
+    logging.info(f"[startup] products in DB: {len(PRODUCTS)}")
 
 
 class OrderLineItem(BaseModel):
@@ -430,6 +470,63 @@ async def bundle_preview(req: BundlePreviewRequest):
 
 
 app.include_router(api_router)
+app.include_router(admin_router)
+
+
+# ---------- Public settings, CMS pages and analytics ------------------------
+
+PUBLIC_SETTINGS_FIELDS = {
+    "logo_text", "logo_url", "site_title", "site_description",
+    "primary_email", "ga4_measurement_id", "gtm_container_id", "meta_pixel_id",
+    "custom_head_html", "custom_body_html", "demo_banner",
+}
+
+
+@app.get("/api/settings")
+async def public_settings():
+    s = await db.settings.find_one({"key": "site"}) or {}
+    return {k: s.get(k) for k in PUBLIC_SETTINGS_FIELDS}
+
+
+@app.get("/api/pages/{slug}")
+async def public_page(slug: str):
+    p = await db.pages.find_one({"slug": slug})
+    if not p:
+        raise HTTPException(status_code=404, detail="Page not found")
+    p.pop("_id", None)
+    return p
+
+
+class TrackEvent(BaseModel):
+    visitor_id: str
+    session_id: Optional[str] = None
+    event_type: str  # page_view | product_view | add_to_cart | checkout_start | order_confirmed | custom
+    path: Optional[str] = None
+    referrer: Optional[str] = None
+    product_slug: Optional[str] = None
+    device_type: Optional[str] = None  # mobile | tablet | desktop
+    language: Optional[str] = None
+    value_eur: Optional[float] = None
+    extra: Optional[dict] = None
+
+
+@app.post("/api/analytics/track")
+async def analytics_track(evt: TrackEvent, request: Request):
+    doc = evt.model_dump()
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    ref = doc.get("referrer") or ""
+    try:
+        host = urlparse(ref).hostname if ref else None
+    except Exception:
+        host = None
+    doc["ip"] = ip
+    doc["user_agent"] = ua
+    doc["referrer_host"] = host
+    doc["ts"] = datetime.now(timezone.utc).isoformat()
+    await db.analytics_events.insert_one(doc)
+    return {"ok": True}
+
 
 app.add_middleware(
     CORSMiddleware,

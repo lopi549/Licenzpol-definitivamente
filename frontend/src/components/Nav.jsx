@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../lib/cart";
 import { useLang } from "../lib/i18n";
+import { useSiteSettings } from "../lib/tracking";
 import { ShoppingBag, Search, Menu, Layers, X, Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -9,6 +10,7 @@ export default function Nav() {
   const loc = useLocation();
   const { count, setDrawerOpen, compare } = useCart();
   const { lang, setLang, t } = useLang();
+  const { settings } = useSiteSettings();
   const [q, setQ] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -39,8 +41,12 @@ export default function Nav() {
     <header className={`sticky top-0 z-50 border-b ${scrolled ? "glass border-white/10" : "border-transparent bg-transparent"}`}>
       <div className="max-w-[1400px] mx-auto px-5 md:px-8 h-16 flex items-center gap-6">
         <Link to="/" data-testid="nav-brand" className="flex items-center gap-2 shrink-0">
-          <div className="w-7 h-7 rounded-md bg-white text-black flex items-center justify-center font-display font-bold text-[13px]">LP</div>
-          <span className="font-display text-white text-lg tracking-tight">Licenz<span className="text-zinc-400">Pøl</span></span>
+          {settings?.logo_url ? (
+            <img src={settings.logo_url} alt="logo" className="h-7 w-auto" />
+          ) : (
+            <div className="w-7 h-7 rounded-md bg-white text-black flex items-center justify-center font-display font-bold text-[13px]">LP</div>
+          )}
+          <span className="font-display text-white text-lg tracking-tight">{settings?.logo_text || "LicenzPøl"}</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-6 ml-4">

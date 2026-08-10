@@ -6,6 +6,7 @@ import { useCart } from "../lib/cart";
 import ProductCard from "../components/ProductCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion";
 import { toast } from "sonner";
+import { trackEvent } from "../lib/tracking";
 import { Check, Mail, FileText, KeyRound, Cpu, ChevronRight, Layers } from "lucide-react";
 
 export default function ProductDetail() {
@@ -18,7 +19,11 @@ export default function ProductDetail() {
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
-    api.product(slug).then(p => { setProduct(p); setVariantId(p.variants[0].id); });
+    api.product(slug).then(p => {
+      setProduct(p);
+      setVariantId(p.variants[0].id);
+      trackEvent({ event_type: "product_view", product_slug: p.slug });
+    });
     api.related(slug).then(setRelated);
     window.scrollTo(0, 0);
   }, [slug]);
@@ -38,6 +43,7 @@ export default function ProductDetail() {
     addItem(product, variant);
     setAdded(true);
     toast.success(lang === "it" ? "Aggiunto al carrello" : "Added to cart");
+    trackEvent({ event_type: "add_to_cart", product_slug: product.slug, value_eur: variant.price_eur });
     setTimeout(() => setAdded(false), 1600);
   };
 

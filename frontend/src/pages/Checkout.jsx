@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "../lib/cart";
 import { useLang, money } from "../lib/i18n";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { trackEvent } from "../lib/tracking";
 import { toast } from "sonner";
 import { AlertTriangle, Check, ShieldCheck } from "lucide-react";
 
@@ -14,6 +15,13 @@ export default function Checkout() {
   const [form, setForm] = useState({ email: "", first_name: "", last_name: "", country: "IT", company: "", vat: "" });
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (items.length > 0 && !order) {
+      trackEvent({ event_type: "checkout_start", value_eur: subtotal });
+    }
+    // eslint-disable-next-line
+  }, []);
 
   const canProceed1 = form.email && form.first_name && form.last_name && form.country;
 
@@ -43,6 +51,7 @@ export default function Checkout() {
       const res = await api.createOrder(payload);
       setOrder(res);
       setStep(3);
+      trackEvent({ event_type: "order_confirmed", value_eur: subtotal, extra: { reference: res.reference } });
       clear();
     } catch (e) {
       toast.error(lang === "it" ? "Errore, riprova" : "Something went wrong, try again");

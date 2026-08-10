@@ -1,6 +1,34 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useLang } from "../lib/i18n";
+import { api } from "../lib/api";
+import axios from "axios";
 import { Circle, Info } from "lucide-react";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function useCmsPage(slug) {
+  const [page, setPage] = useState(null);
+  useEffect(() => {
+    axios.get(`${API}/pages/${slug}`).then(r => setPage(r.data)).catch(() => setPage(null));
+  }, [slug]);
+  return page;
+}
+
+function CmsRender({ slug, fallbackTitle, children }) {
+  const { lang } = useLang();
+  const page = useCmsPage(slug);
+  if (!page) return children;
+  const content = lang === "it" ? page.content_it : page.content_en;
+  const title = lang === "it" ? page.title_it : page.title_en;
+  return (
+    <div>
+      <p className="label-eyebrow mb-2">CMS</p>
+      <h1 className="font-display text-4xl md:text-5xl tracking-tight">{title || fallbackTitle}</h1>
+      <div className="mt-8 whitespace-pre-wrap text-zinc-400 leading-relaxed font-mono text-sm">{content}</div>
+    </div>
+  );
+}
 
 export function Transparency() {
   const { lang } = useLang();
@@ -47,14 +75,15 @@ export function Legal({ kind }) {
   const title = { privacy: it ? "Privacy" : "Privacy", terms: it ? "Termini" : "Terms", cookies: "Cookie" }[kind];
   return (
     <div className="max-w-[900px] mx-auto px-6 py-16" data-testid={`legal-${kind}`}>
-      <p className="label-eyebrow mb-2">Legal</p>
-      <h1 className="font-display text-4xl md:text-5xl tracking-tight">{title}</h1>
-      <div className="mt-8 text-zinc-400 space-y-4 leading-relaxed">
-        <p>{it
-          ? "Questa è una pagina segnaposto per il prototipo. In un'implementazione reale, qui verrebbero pubblicate le informative complete, redatte secondo il diritto UE."
-          : "This is a placeholder page for the prototype. In a real deployment, the full policies drafted according to EU law would be published here."}</p>
-        <p>{it ? "Per qualsiasi domanda, contattaci." : "For any question, contact us."}</p>
-      </div>
+      <CmsRender slug={kind} fallbackTitle={title}>
+        <p className="label-eyebrow mb-2">Legal</p>
+        <h1 className="font-display text-4xl md:text-5xl tracking-tight">{title}</h1>
+        <div className="mt-8 text-zinc-400 space-y-4 leading-relaxed">
+          <p>{it
+            ? "Questa è una pagina segnaposto per il prototipo. Amministrala dal pannello admin."
+            : "Placeholder page. Manage from the admin panel."}</p>
+        </div>
+      </CmsRender>
     </div>
   );
 }
